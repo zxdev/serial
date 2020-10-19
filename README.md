@@ -9,7 +9,6 @@ The SID can be released in any order, but requests are always forward looking an
   request,release := serial.Enumerator(6000)
   
   for !exit {
-    sid := request()
     go func(id int) {
       defer release(id)
       // ... do stuff
