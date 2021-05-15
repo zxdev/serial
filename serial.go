@@ -22,7 +22,12 @@
 
 package serial
 
-import "sync"
+import (
+	"encoding/binary"
+	"fmt"
+	"os"
+	"sync"
+)
 
 // Enumerator returns a set of functions to request() and release() a SID
 // (serialized numeric ID) from an available limited numeric pool range.
@@ -57,4 +62,37 @@ func Enumerator(size int) (request func() (sid int), release func(sid int)) {
 			bits[sid/8] &^= 1 << (sid % 8) // clear sid bit
 			mutex.Unlock()
 		}
+}
+
+// Number provides a persistent sequential serial number type that
+// can be persisted to disk; utilizes the first 7 bytes of uint64
+type Number uint64
+
+// Load Number from disk
+func (n *Number) Load(path string) {
+	var buf [8]byte
+	f, _ := os.Open(path)
+	f.Read(buf[:])
+	f.Close()
+	*n = Number(binary.LittleEndian.Uint64(buf[:]))
+}
+
+// Save Number to disk
+func (n *Number) Save(path string) {
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], uint64(*n))
+	f, _ := os.Create(path)
+	f.Write(buf[:])
+	f.Close()
+}
+
+// Next generates the next serial Number in the
+// range (N00000000000001 to NFFFFFFFFFFFFFF)
+func (n *Number) Next() string {
+	// constrain to max 7-byte size number
+	if *n == 72057594037927935 {
+		*n = 0
+	}
+	(*n)++
+	return fmt.Sprintf("N%014x", *n)
 }
